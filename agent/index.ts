@@ -1,10 +1,15 @@
 import { GuiHelper } from './view'
+import { utils } from "./utils";
 
 Java.perform(() => {
     Java.deoptimizeEverything()
-    Object.assign(global, {
-        $: {
-            gui: GuiHelper
+    Object.defineProperty(
+        global, '$',
+        {
+            value: {
+                utils,
+                gui: GuiHelper
+            }
         }
-    })
+    )
 })

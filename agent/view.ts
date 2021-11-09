@@ -1,4 +1,5 @@
 import Wrapper = Java.Wrapper
+import * as jclass from './jclass'
 
 interface Rect {
     left: number,
@@ -7,20 +8,8 @@ interface Rect {
     bottom: number
 }
 
-const Activity = Java.use('android.app.Activity')
-const ActivityThread = Java.use('android.app.ActivityThread')
-const ActivityClientRecord = Java.use("android.app.ActivityThread$ActivityClientRecord")
-const DecorView = Java.use('com.android.internal.policy.DecorView')
-const Rect = Java.use('android.graphics.Rect')
-const Resources = Java.use('android.content.res.Resources')
-const TextView = Java.use('android.widget.TextView')
-const View = Java.use('android.view.View')
-const ViewGroup = Java.use('android.view.ViewGroup')
-const WeakHashMap = Java.use('java.util.WeakHashMap')
-
-
-let mHighlightViews: Wrapper = WeakHashMap.$new();
-View.isShowingLayoutBounds.implementation = function () {
+let mHighlightViews: Wrapper = jclass.WeakHashMap.$new();
+jclass.View.isShowingLayoutBounds.implementation = function () {
     if (mHighlightViews.get(this) !== null) {
         return true;
     }
@@ -32,7 +21,7 @@ class ActivityWrapper {
     instance: Wrapper
 
     constructor(activity: Wrapper) {
-        this.instance = Java.cast(activity, Activity)
+        this.instance = Java.cast(activity, jclass.Activity)
     }
 
     get class(): Wrapper {
@@ -204,26 +193,26 @@ class ViewWrapper {
     instance: Wrapper
 
     constructor(view: any) {
-        this.instance = Java.cast(view, View)
+        this.instance = Java.cast(view, jclass.View)
     }
 
     get children(): ViewWrapper[] | null {
-        if (!ViewGroup.class.isInstance(this.instance)) {
+        if (!jclass.ViewGroup.class.isInstance(this.instance)) {
             return null
         }
         let result = []
-        let length = ViewGroup.getChildCount.call(this.instance)
+        let length = jclass.ViewGroup.getChildCount.call(this.instance)
         for (let i = 0; i < length; i++) {
             result.push(new ViewWrapper(
-                ViewGroup.getChildAt.call(this.instance, i)
+                jclass.ViewGroup.getChildAt.call(this.instance, i)
             ))
         }
         return result
     }
 
     get text(): string | null {
-        if (TextView.class.isInstance()) {
-            return TextView.getText.call(this.instance).toString()
+        if (jclass.TextView.class.isInstance()) {
+            return jclass.TextView.getText.call(this.instance).toString()
         }
         return null
     }
@@ -237,21 +226,21 @@ class ViewWrapper {
     }
 
     get id(): string | null {
-        let id = View.getId.call(this.instance)
-        if (id === View.NO_ID.value) {
+        let id = jclass.View.getId.call(this.instance)
+        if (id === jclass.View.NO_ID.value) {
             return null
         }
         let mResources = this.instance.mResources.value
-        if (id > 0 && Resources.resourceHasPackage(id) && mResources != null) {
-            return Resources.getResourceEntryName.call(mResources, id)
+        if (id > 0 && jclass.Resources.resourceHasPackage(id) && mResources != null) {
+            return jclass.Resources.getResourceEntryName.call(mResources, id)
         }
         return null
     }
 
     get idHex(): string {
-        let id: number = View.getId.call(this.instance)
-        if (id === View.NO_ID.value) {
-            return View.NO_ID.value.toString()
+        let id: number = jclass.View.getId.call(this.instance)
+        if (id === jclass.View.NO_ID.value) {
+            return jclass.View.NO_ID.value.toString()
         }
         return '0x' + id.toString(16)
     }
@@ -261,7 +250,7 @@ class ViewWrapper {
     }
 
     get bounds(): Rect {
-        let rect = Rect.$new()
+        let rect = jclass.Rect.$new()
         this.instance.getBoundsOnScreen(rect)
         return {
             left: rect.left.value,
@@ -272,7 +261,7 @@ class ViewWrapper {
     }
 
     get parent(): ViewWrapper | null {
-        if (DecorView.class.isInstance(this.instance)) {
+        if (jclass.DecorView.class.isInstance(this.instance)) {
             return null
         }
         return new ViewWrapper(this.instance.getParent())
@@ -328,11 +317,11 @@ class ViewWrapper {
 
 export class GuiHelper {
     static currentActivity() {
-        let activityThread = ActivityThread.currentActivityThread();
+        let activityThread = jclass.ActivityThread.currentActivityThread();
         let mActivities = activityThread.mActivities.value;
         let keys = mActivities.keySet().toArray();
         for (const key of keys) {
-            let record = Java.cast(mActivities.get(key), ActivityClientRecord);
+            let record = Java.cast(mActivities.get(key), jclass.ActivityClientRecord);
             if (!record.paused.value) {
                 return new ActivityWrapper(record.activity.value);
             }
@@ -346,9 +335,5 @@ export class GuiHelper {
             return activity.getRoot();
         }
         return null;
-    }
-
-    static getApplication(): Wrapper {
-        return ActivityThread.currentActivityThread().mInitialApplication.value;
     }
 }
