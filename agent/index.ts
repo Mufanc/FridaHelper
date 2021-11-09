@@ -6,10 +6,11 @@ Java.perform(() => {
     Object.defineProperty(
         global, '$',
         {
-            value: {
+            value: Object.assign(
+                Object.create(null), {
                 utils,
                 gui: GuiHelper
-            }
+            })
         }
     )
 })

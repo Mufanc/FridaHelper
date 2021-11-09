@@ -41,7 +41,11 @@ class ActivityWrapper {
     }
 
     toString() {
-        return `ActivityWrapper {${this.instance.toString()}}`
+        return `ActivityWrapper{ ${this.instance.toString()} }`
+    }
+
+    toJSON() {
+        return this.toString()
     }
 }
 
@@ -187,6 +191,14 @@ class Selector {
         }
         return inner(this.#target)
     }
+
+    toString() {
+        return `Selector{ (${this.#filters.length} filters...) }`
+    }
+
+    toJSON() {
+        return this.toString()
+    }
 }
 
 class ViewWrapper {
@@ -247,6 +259,10 @@ class ViewWrapper {
 
     get class(): Wrapper {
         return this.instance.getClass()
+    }
+
+    get className(): string {
+        return this.class.getName()
     }
 
     get bounds(): Rect {
@@ -311,7 +327,11 @@ class ViewWrapper {
     }
 
     toString() {
-        return `ViewWrapper {${this.instance.toString()}}`
+        return `ViewWrapper{ ${this.instance.toString()} }`
+    }
+
+    toJSON() {
+        return this.toString()
     }
 }
 
