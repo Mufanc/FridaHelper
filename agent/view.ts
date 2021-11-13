@@ -223,7 +223,7 @@ class ViewWrapper {
     }
 
     get text(): string | null {
-        if (jclass.TextView.class.isInstance()) {
+        if (jclass.TextView.class.isInstance(this.instance)) {
             return jclass.TextView.getText.call(this.instance).toString()
         }
         return null
@@ -283,7 +283,7 @@ class ViewWrapper {
         return new ViewWrapper(this.instance.getParent())
     }
 
-    highlight(state: boolean): void {
+    highlight(state: boolean = true): void {
         // Todo: 取消所有 highlight
         if (state) {
             mHighlightViews.put(this.instance, '#')
@@ -295,16 +295,31 @@ class ViewWrapper {
         });
     }
 
+    enable(state: boolean = true): void {
+        this.instance.setEnabled(state)
+    }
+
     getSelector(): Selector {
         return new Selector(this)
     }
 
-    getListeners(defaults=['click']): { [key: string]: Wrapper } {
+    getListeners(...names: string[]): { [key: string]: Wrapper } {
         let info = this.instance.getListenerInfo()
-        return Object.fromEntries(defaults.map((name) => {
-            let capital = name.replace(/^./, str => str.toUpperCase())
-            return [name, info[`mOn${capital}Listener`].value]
-        }))
+        if (names.length) {
+            return Object.fromEntries(names.map((name) => {
+                let capital = name.replace(/^./, str => str.toUpperCase())
+                return [name, info[`mOn${capital}Listener`].value]
+            }))
+        } else {
+            let fields: [string, Wrapper][] = []
+            info.getClass().getDeclaredFields().forEach((item: Wrapper) => {
+                let name = item.getName().match(/^mOn([A-Za-z]+)Listeners?$/)
+                if (name !== null) {
+                    fields.push([name[1], info[name[0]].value])
+                }
+            })
+            return Object.fromEntries(fields)
+        }
     }
 
     tree(limit: number): void {

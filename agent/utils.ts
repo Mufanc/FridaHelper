@@ -15,12 +15,21 @@ export class utils {
         )
     }
 
+    static findClassLoaderContains(className: string): Wrapper[] {
+        let loaders: Wrapper[] = [];
+        Java.enumerateClassLoaders({
+            onMatch(loader) {
+                try {
+                    loader.findClass(className)
+                    loaders.push(loader)
+                } catch { }
+            },
+            onComplete() { }
+        });
+        return loaders;
+    }
+
     static $debug() {
-        return new Proxy({}, {
-            get(target: {}, p: PropertyKey, receiver: any): any {
-                console.log(p)
-                return null
-            }
-        })
+
     }
 }
