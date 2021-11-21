@@ -1,19 +1,12 @@
 import Wrapper = Java.Wrapper
-import * as jclass from './jclass'
+import { jclass } from './jclass'
+import {utils} from "./utils";
 
 interface Rect {
     left: number,
     top: number,
     right: number,
     bottom: number
-}
-
-let mHighlightViews: Wrapper = jclass.WeakHashMap.$new();
-jclass.View.isShowingLayoutBounds.implementation = function () {
-    if (mHighlightViews.get(this) !== null) {
-        return true;
-    }
-    return this.isShowingLayoutBounds();
 }
 
 
@@ -406,17 +399,27 @@ class ViewWrapper {
     }
 
     /**
-     * 高亮当前控件（只对当前控件设置「显示布局边界」）
-     * @param state 启用状态，设置 false 可以取消高亮，默认 true
+     * 在屏幕上标记当前控件
      */
-    highlight(state: boolean = true): void {
-        if (state) {
-            mHighlightViews.put(this.instance, '#')
-        } else {
-            mHighlightViews.remove(this.instance)
-        }
+    mark(): void {
+        let original = this.instance.getForeground();
+
+        let bitmap = jclass.Bitmap.createBitmap(1, 1, jclass.Bitmap$Config.ARGB_8888.value);
+        let canvas = jclass.Canvas.$new();
+        canvas.setBitmap(bitmap);
+        canvas.drawColor(2147418112);  // red, 50% alpha
+        let fg = jclass.BitmapDrawable.$new(utils.getApplication().getResources(), bitmap);
+
         Java.scheduleOnMainThread(() => {
+            this.instance.setForeground(fg)
             this.instance.invalidate()
+
+            setTimeout(() => {
+                Java.scheduleOnMainThread(() => {
+                    this.instance.setForeground(original)
+                    this.instance.invalidate()
+                })
+            }, 3000)
         });
     }
 
@@ -490,96 +493,90 @@ class ViewWrapper {
     }
 }
 
-export class GuiHelper {
-    /**
-     * 清除所有由 ViewWrapper.highlight 设置的高亮
-     */
-    static clearAllHighlights(): void {
-        mHighlightViews.clear()
-        this.invalidateWorld()
-    }
-
-    /**
-     * 返回第一个状态不是 ”paused“ 的 Activity
-     */
-    static currentActivity(): ActivityWrapper | null {
-        let activityThread = jclass.ActivityThread.currentActivityThread();
-        let mActivities = activityThread.mActivities.value;
-        let keys = mActivities.keySet().toArray();
-        for (const key of keys) {
-            let record = Java.cast(mActivities.get(key), jclass.ActivityClientRecord);
-            if (!record.paused.value) {
-                return new ActivityWrapper(record.activity.value);
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 获取当前焦点窗口的 DecorView
-     */
-    static currentRoot(): ViewWrapper | null {
-        let roots = this.currentRoots()
-        for (const root of roots) {
-            if (root.instance.mAttachInfo.value.mHasWindowFocus.value) {
-                return root
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 获取当前所有活动窗口的 DecorView，返回一个数组
-     */
-    static currentRoots(): ViewWrapper[] {
-        let manager = jclass.WindowManagerGlobal.getInstance()
-        let arr = manager.mViews.value, length = arr.size()
-        let roots = []
-        for (let i = 0; i < length; i++) {
-            roots.push(new ViewWrapper(arr.get(i)))
-        }
-        return roots
-    }
-
-    /**
-     * 点击控件时，将控件信息打印到控制台
-     * @param state 是否开启功能，默认为 true
-     */
-    static handleClick(state: boolean = true): void {
-        if (state) {
-            jclass.View.performClick.implementation = function () {
-                console.log(this)
-                return this.performClick()
-            }
-        } else {
-            jclass.View.performClick.implementation = null
-        }
-    }
-
-    /**
-     * 重绘所有控件
-     */
-    static invalidateWorld() {
-        this.currentRoots().forEach((decor) => {
-            let rootImpl = Java.cast(decor.instance.getParent(), jclass.ViewRootImpl)
-            Java.scheduleOnMainThread(() => {
-                rootImpl.invalidateWorld(decor.instance)
-            })
-
-            Java.scheduleOnMainThread(() => {
-                if (decor !== null) {
-                    decor.instance.invalidate()
+export const gui = Object.assign(
+    Object.create(null), {
+        /**
+         * 返回第一个状态不是 ”paused“ 的 Activity
+         */
+        currentActivity(): ActivityWrapper | null {
+            let activityThread = jclass.ActivityThread.currentActivityThread();
+            let mActivities = activityThread.mActivities.value;
+            let keys = mActivities.keySet().toArray();
+            for (const key of keys) {
+                let record = Java.cast(mActivities.get(), jclass.ActivityClientRecord);
+                if (!record.paused.value) {
+                    return new ActivityWrapper(record.activity.value);
                 }
-            })
-        })
-    }
+            }
+            return null;
+        },
 
-    /**
-     * 开启/关闭「显示布局边界」
-     * @param state 开关状态，默认为 true
-     */
-    static showLayoutBorder(state: boolean = true): void {
-        jclass.View.DEBUG_DRAW.value = state
-        this.invalidateWorld()
+        /**
+         * 获取当前焦点窗口的 DecorView
+         */
+        currentRoot(): ViewWrapper | null {
+            let roots = this.currentRoots()
+            for (const root of roots) {
+                if (root.instance.mAttachInfo.value.mHasWindowFocus.value) {
+                    return root
+                }
+            }
+            return null;
+        },
+
+        /**
+         * 获取当前所有活动窗口的 DecorView，返回一个数组
+         */
+        currentRoots(): ViewWrapper[] {
+            let manager = jclass.WindowManagerGlobal.getInstance()
+            let arr = manager.mViews.value, length = arr.size()
+            let roots = []
+            for (let i = 0; i < length; i++) {
+                roots.push(new ViewWrapper(arr.get(i)))
+            }
+            return roots
+        },
+
+        /**
+         * 点击控件时，将控件信息打印到控制台
+         * @param state 是否开启功能，默认为 true
+         */
+        handleClick(state: boolean = true): void {
+            if (state) {
+                jclass.View.performClick.implementation = function () {
+                    console.log(this)
+                    return this.performClick()
+                }
+            } else {
+                jclass.View.performClick.implementation = null
+            }
+        },
+
+        /**
+         * 重绘所有控件
+         */
+        invalidateWorld() {
+            this.currentRoots().forEach((decor) => {
+                let rootImpl = Java.cast(decor.instance.getParent(), jclass.ViewRootImpl)
+                Java.scheduleOnMainThread(() => {
+                    rootImpl.invalidateWorld(decor.instance)
+                })
+
+                Java.scheduleOnMainThread(() => {
+                    if (decor !== null) {
+                        decor.instance.invalidate()
+                    }
+                })
+            })
+        },
+
+        /**
+         * 开启/关闭「显示布局边界」
+         * @param state 开关状态，默认为 true
+         */
+        showLayoutBorder(state: boolean = true): void {
+            jclass.View.DEBUG_DRAW.value = state
+            this.invalidateWorld()
+        }
     }
-}
+)
